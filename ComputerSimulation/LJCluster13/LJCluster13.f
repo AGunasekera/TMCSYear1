@@ -5,28 +5,33 @@
       IMPLICIT NONE
       INTEGER :: NATOMS, I, NSTEPS
       REAL*8 :: XMATRIX(3, 13), VMATRIX(3, 13), FMATRIX(3, 13), 
-     &NEWFMATRIX(3, 13), DT
-*      REAL*8 :: V_VERLET_X(3), V_VERLET_V(3), FORCE(3)
+     &NEWFMATRIX(3, 13), DT, TEMPERATURE, SITEMPERATURE
 
       NATOMS = 13
-      NSTEPS = 50000
-      DT = 0.0001
+      NSTEPS = 1000
+      DT = 0.01
 
       CALL INITIALISE(XMATRIX, VMATRIX, NATOMS)
 
       CALL GETFORCES(FMATRIX, XMATRIX, NATOMS)
 
-      DO 140 I = 1, NSTEPS
+      DO 1 I = 1, NSTEPS
           CALL V_VERLET_UPDATE_XMATRIX(XMATRIX, VMATRIX, 
      &FMATRIX, NATOMS, DT)
           CALL GETFORCES(NEWFMATRIX, XMATRIX, NATOMS)
           CALL V_VERLET_UPDATE_VMATRIX(VMATRIX, FMATRIX, 
      &NEWFMATRIX, NATOMS, DT)
           FMATRIX = NEWFMATRIX
-          IF (MOD(I, 100) .EQ. 0) THEN
+          IF (MOD(I, 10) .EQ. 0) THEN
               CALL WRITECONFIG(XMATRIX, NATOMS)
+              CALL GETTEMP(VMATRIX, NATOMS, TEMPERATURE)
+              CALL CONVERTTEMP(TEMPERATURE, SITEMPERATURE)
+              WRITE (*, *) "Time step: ", I
+              WRITE (*, *) "Temperature (reduced units): ", TEMPERATURE
+              WRITE (*, *) "Temperature / K (Argon): ", SITEMPERATURE
+              WRITE (*, *) ""
           END IF
-140    CONTINUE
+1     CONTINUE
 
       END PROGRAM
 
@@ -188,7 +193,6 @@
 
       CLOSE(1)
 
-*      CALL SETMATRIXZERO(XMATRIX, NATOMS)
       CALL SETMATRIXZERO(VMATRIX, NATOMS)
 
       END SUBROUTINE
@@ -208,5 +212,52 @@
           WRITE (1, *) "Ar", XMATRIX(:,I)
 140   CONTINUE
       CLOSE(1)
+
+      END SUBROUTINE
+
+      SUBROUTINE TOTALKINETICENERGY(VMATRIX, NATOMS, TOTKE)
+      REAL*8 :: VMATRIX(3, *), TOTKE
+      INTEGER :: NATOMS
+*
+* Get the total kinetic energy (in reduced units)
+*
+      REAL*8 :: VI(3), V2I
+      INTEGER :: I
+
+      TOTKE = 0
+
+      DO 150 I = 1, NATOMS
+          VI = VMATRIX(:, I)
+          CALL GETSQUAREMAGNITUDE(VI, V2I)
+          TOTKE = TOTKE + V2I / 2
+150   CONTINUE
+
+      END SUBROUTINE
+
+      SUBROUTINE GETTEMP(VMATRIX, NATOMS, TEMP)
+      REAL*8 :: VMATRIX(3, *), TEMP
+      INTEGER :: NATOMS
+*
+* Get temperature (in reduced units)
+* from average kinetic energy of particles
+*
+      REAL*8 :: TOTALKE
+
+      CALL TOTALKINETICENERGY(VMATRIX, NATOMS, TOTALKE)
+      TEMP = TOTALKE / DBLE(NATOMS) * (2. / 3.)
+
+      END SUBROUTINE
+
+      SUBROUTINE CONVERTTEMP(TEMP, SITEMP)
+      REAL*8 :: TEMP, SITEMP
+*
+* Convert temperature from reduced units to SI, for Argon
+*
+      REAL*8 :: SIGMA, EPSILONBYKBK
+
+      EPSILONBYKBK = 120
+      SIGMA = 3.4 * 10 ** (-10)
+
+      SITEMP = TEMP * EPSILONBYKBK
 
       END SUBROUTINE
