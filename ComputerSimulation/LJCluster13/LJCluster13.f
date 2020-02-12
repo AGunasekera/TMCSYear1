@@ -6,10 +6,10 @@
       INTEGER :: NATOMS, I, NSTEPS
       REAL*8 :: XMATRIX(3, 13), VMATRIX(3, 13), FMATRIX(3, 13), 
      &NEWFMATRIX(3, 13), DT
-      REAL*8 :: V_VERLET_X(3), V_VERLET_V(3), FORCE(3)
+*      REAL*8 :: V_VERLET_X(3), V_VERLET_V(3), FORCE(3)
 
       NATOMS = 13
-      NSTEPS = 500
+      NSTEPS = 20
       DT = 0.5
 
       CALL INITIALISE(XMATRIX, VMATRIX, NATOMS)
@@ -38,8 +38,8 @@
 *
       INTEGER :: I, J
 
-      DO 30 I = 1, N
-          DO 40 J = 1, 3
+      DO 30 I = 1, 3
+          DO 40 J = 1, N
               MATRIX(I, J) = 0.
 40        CONTINUE
 30    CONTINUE
@@ -54,7 +54,7 @@
       INTEGER :: N
 
       DO 10 N = 1, 3
-          DISP(I) = XJ(N) - XI(N)
+          DISP(N) = XJ(N) - XI(N)
 10    CONTINUE
 
       RETURN
@@ -70,7 +70,7 @@
       MAG2 = 0
 
       DO 20 N = 1, 3
-          MAG2 = MAG2 + VEC(I) ** 2
+          MAG2 = MAG2 + VEC(N) ** 2
 20    CONTINUE
 
       RETURN
@@ -152,7 +152,7 @@
 *
 * Get matrix of forces for NATOMS atoms
 *
-      REAL*8 :: XI(3), XJ(3), FIJ
+      REAL*8 :: XI(3), XJ(3), FIJ(3)
       INTEGER :: I, J, N
 
       CALL SETMATRIXZERO(FMATRIX, NATOMS)
@@ -178,7 +178,7 @@
 *
 * Initialise positions and velocities of NATOMS atoms.
 *
-      INTEGER :: I, N
+*      INTEGER :: I, N
 
       OPEN(1, FILE = "initialconfig.txt")
 
@@ -199,7 +199,7 @@
 *
       INTEGER :: I
 
-      OPEN(1, FILE = "LJ13.XYZ")
+      OPEN(1, FILE = "LJ13.xyz")
       WRITE (1, *) NATOMS
       WRITE (1, *) ""
       DO 130 I = 1, NATOMS
