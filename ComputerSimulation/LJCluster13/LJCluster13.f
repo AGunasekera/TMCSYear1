@@ -9,12 +9,10 @@
 *      REAL*8 :: V_VERLET_X(3), V_VERLET_V(3), FORCE(3)
 
       NATOMS = 13
-      NSTEPS = 20
-      DT = 0.5
+      NSTEPS = 50000
+      DT = 0.0001
 
       CALL INITIALISE(XMATRIX, VMATRIX, NATOMS)
-
-      I = 0
 
       CALL GETFORCES(FMATRIX, XMATRIX, NATOMS)
 
@@ -25,7 +23,9 @@
           CALL V_VERLET_UPDATE_VMATRIX(VMATRIX, FMATRIX, 
      &NEWFMATRIX, NATOMS, DT)
           FMATRIX = NEWFMATRIX
-          CALL WRITECONFIG(XMATRIX, NATOMS)
+          IF (MOD(I, 100) .EQ. 0) THEN
+              CALL WRITECONFIG(XMATRIX, NATOMS)
+          END IF
 140    CONTINUE
 
       END PROGRAM
@@ -62,7 +62,7 @@
 
       SUBROUTINE GETSQUAREMAGNITUDE(VEC, MAG2)
 *
-* Magnitude of a given 3D vector
+* Square magnitude of a given 3D vector
 *
       REAL*8 :: VEC(3), MAG2
       INTEGER :: N
@@ -84,7 +84,7 @@
       REAL*8 :: RTOMIN6
 
       RTOMIN6 = R2 ** (-3)
-      LJ2FSCAL = 24 * (RTOMIN6 - 2 * RTOMIN6 ** 2) / R2
+      LJ2FSCAL = 24 * ((2 * (RTOMIN6 ** 2)) - RTOMIN6) / R2
 
       RETURN
       END SUBROUTINE
@@ -102,7 +102,7 @@
       CALL GETFORCESCALAR(DISTIJ2, FSCAL)
 
       DO 90 N = 1, 3
-          LJFIJ(N) = DISPIJ(N) * FSCAL
+          LJFIJ(N) = - DISPIJ(N) * FSCAL
 90    CONTINUE
 
       RETURN
@@ -164,10 +164,10 @@
               CALL GETLJFORCEIJ(XI, XJ, FIJ)
               DO 120 N = 1, 3
                   FMATRIX(N, I) = FMATRIX(N, I) + FIJ(N)
-                  FMATRIX(N, J) = FMATRIX(N, J) + FIJ(N)
-120            CONTINUE
-110        CONTINUE
-100    CONTINUE
+                  FMATRIX(N, J) = FMATRIX(N, J) - FIJ(N)
+120           CONTINUE
+110       CONTINUE
+100   CONTINUE
 
       RETURN
       END SUBROUTINE
@@ -178,15 +178,17 @@
 *
 * Initialise positions and velocities of NATOMS atoms.
 *
-*      INTEGER :: I, N
+      INTEGER :: I
 
       OPEN(1, FILE = "initialconfig.txt")
 
-*      READ (1, *) XMATRIX
+      DO 130 I = 1, NATOMS
+          READ (1, *) XMATRIX(1, I), XMATRIX(2, I), XMATRIX(3, I)
+130   CONTINUE
 
       CLOSE(1)
 
-      CALL SETMATRIXZERO(XMATRIX, NATOMS)
+*      CALL SETMATRIXZERO(XMATRIX, NATOMS)
       CALL SETMATRIXZERO(VMATRIX, NATOMS)
 
       END SUBROUTINE
@@ -199,12 +201,12 @@
 *
       INTEGER :: I
 
-      OPEN(1, FILE = "LJ13.xyz")
+      OPEN(1, ACCESS = "APPEND", FILE = "LJ13.xyz")
       WRITE (1, *) NATOMS
       WRITE (1, *) ""
-      DO 130 I = 1, NATOMS
+      DO 140 I = 1, NATOMS
           WRITE (1, *) "Ar", XMATRIX(:,I)
-130    CONTINUE
+140   CONTINUE
       CLOSE(1)
 
       END SUBROUTINE
