@@ -5,7 +5,9 @@
       IMPLICIT NONE
       INTEGER :: NATOMS, I, NSTEPS
       REAL*8 :: XMATRIX(3, 13), VMATRIX(3, 13), FMATRIX(3, 13), 
-     &NEWFMATRIX(3, 13), DT, TEMPERATURE, SITEMPERATURE
+     &NEWFMATRIX(3, 13), DT
+      REAL*8 :: POTENTIALENERGY, KINETICENERGY, 
+     &TEMPERATURE, SITEMPERATURE
 
       NATOMS = 13
       NSTEPS = 1000
@@ -24,12 +26,25 @@
           FMATRIX = NEWFMATRIX
           IF (MOD(I, 10) .EQ. 0) THEN
               CALL WRITECONFIG(XMATRIX, NATOMS)
-              CALL GETTEMP(VMATRIX, NATOMS, TEMPERATURE)
+              CALL TOTALPOTENTIALENERGY(XMATRIX, NATOMS, 
+     &POTENTIALENERGY)
+              CALL TOTALKINETICENERGY(VMATRIX, NATOMS, KINETICENERGY)
+              CALL GETTEMP(KINETICENERGY, NATOMS, TEMPERATURE)
               CALL CONVERTTEMP(TEMPERATURE, SITEMPERATURE)
               WRITE (*, *) "Time step: ", I
+              WRITE (*, *) "Potential energy: ", POTENTIALENERGY
+              WRITE (*, *) "Kinetic energy: ", KINETICENERGY
+              WRITE (*, *) "Total energy: ", POTENTIALENERGY 
+     &+ KINETICENERGY
               WRITE (*, *) "Temperature (reduced units): ", TEMPERATURE
-              WRITE (*, *) "Temperature / K (Argon): ", SITEMPERATURE
+              WRITE (*, *) "Approximate eqivalent for Argon / K: ", 
+     &SITEMPERATURE
               WRITE (*, *) ""
+              OPEN (3, ACCESS = "APPEND", FILE = "thermo.dat")
+              WRITE (3, *) I * DT, POTENTIALENERGY, KINETICENERGY, 
+     &POTENTIALENERGY + KINETICENERGY, TEMPERATURE
+              CLOSE (3)
+              
           END IF
 1     CONTINUE
 
@@ -62,7 +77,6 @@
           DISP(N) = XJ(N) - XI(N)
 10    CONTINUE
 
-      RETURN
       END SUBROUTINE
 
       SUBROUTINE GETSQUAREMAGNITUDE(VEC, MAG2)
@@ -78,7 +92,6 @@
           MAG2 = MAG2 + VEC(N) ** 2
 20    CONTINUE
 
-      RETURN
       END SUBROUTINE
 
       SUBROUTINE GETFORCESCALAR(R2, LJ2FSCAL)
@@ -91,7 +104,6 @@
       RTOMIN6 = R2 ** (-3)
       LJ2FSCAL = 24 * ((2 * (RTOMIN6 ** 2)) - RTOMIN6) / R2
 
-      RETURN
       END SUBROUTINE
 
       SUBROUTINE GETLJFORCEIJ(XI, XJ, LJFIJ)
@@ -99,18 +111,32 @@
 *
 * Lennard-Jones force of particle j on particle i
 *
-      REAL*8 :: DISPIJ(3), DISTIJ2, FSCAL
+      REAL*8 :: DISPIJ(3), R2, FSCAL
       INTEGER :: N
 
       CALL GETDISP(XI, XJ, DISPIJ)
-      CALL GETSQUAREMAGNITUDE(DISPIJ, DISTIJ2)
-      CALL GETFORCESCALAR(DISTIJ2, FSCAL)
+      CALL GETSQUAREMAGNITUDE(DISPIJ, R2)
+      CALL GETFORCESCALAR(R2, FSCAL)
 
       DO 90 N = 1, 3
           LJFIJ(N) = - DISPIJ(N) * FSCAL
 90    CONTINUE
 
-      RETURN
+      END SUBROUTINE
+
+      SUBROUTINE GET2ATOMPOTENTIAL(XI, XJ, LJPOTIJ)
+      REAL*8 :: XI(3), XJ(3), LJPOTIJ
+*
+* Lennard-Jones pair potential for particles i and j
+*
+      REAL*8 :: DISPIJ(3), R2, RTOMIN6
+
+      CALL GETDISP(XI, XJ, DISPIJ)
+      CALL GETSQUAREMAGNITUDE(DISPIJ, R2)
+
+      RTOMIN6 = R2 ** (-3)
+      LJPOTIJ = 4 * (RTOMIN6 ** 2 - RTOMIN6)
+
       END SUBROUTINE
 
       SUBROUTINE V_VERLET_UPDATE_XMATRIX
@@ -129,7 +155,6 @@
 60        CONTINUE
 50    CONTINUE
 
-      RETURN
       END SUBROUTINE
 
       SUBROUTINE V_VERLET_UPDATE_VMATRIX(VMATRIX, FMATRIX, 
@@ -148,7 +173,6 @@
 80        CONTINUE
 70    CONTINUE
 
-      RETURN
       END SUBROUTINE
 
       SUBROUTINE GETFORCES(FMATRIX, XMATRIX, NATOMS)
@@ -174,7 +198,6 @@
 110       CONTINUE
 100   CONTINUE
 
-      RETURN
       END SUBROUTINE
 
       SUBROUTINE INITIALISE(XMATRIX, VMATRIX, NATOMS)
@@ -234,16 +257,13 @@
 
       END SUBROUTINE
 
-      SUBROUTINE GETTEMP(VMATRIX, NATOMS, TEMP)
-      REAL*8 :: VMATRIX(3, *), TEMP
+      SUBROUTINE GETTEMP(TOTALKE, NATOMS, TEMP)
+      REAL*8 :: TOTALKE, TEMP
       INTEGER :: NATOMS
 *
 * Get temperature (in reduced units)
 * from average kinetic energy of particles
 *
-      REAL*8 :: TOTALKE
-
-      CALL TOTALKINETICENERGY(VMATRIX, NATOMS, TOTALKE)
       TEMP = TOTALKE / DBLE(NATOMS) * (2. / 3.)
 
       END SUBROUTINE
@@ -259,5 +279,27 @@
       SIGMA = 3.4 * 10 ** (-10)
 
       SITEMP = TEMP * EPSILONBYKBK
+
+      END SUBROUTINE
+
+      SUBROUTINE TOTALPOTENTIALENERGY(XMATRIX, NATOMS, TOTPE)
+      REAL*8 :: XMATRIX(3, *), TOTPE
+      INTEGER :: NATOMS
+*
+* Get total potential energy using Lennard-Jones pair potential
+*
+      REAL*8 :: XI(3), XJ(3), POTIJ
+      INTEGER :: I, J
+
+      TOTPE = 0
+
+      DO 160 I = 1, NATOMS - 1
+          XI = XMATRIX(:, I)
+          DO 170 J = I + 1, NATOMS
+              XJ = XMATRIX(:, J)
+              CALL GET2ATOMPOTENTIAL(XI, XJ, POTIJ)
+              TOTPE = TOTPE + POTIJ
+170       CONTINUE
+160   CONTINUE
 
       END SUBROUTINE
