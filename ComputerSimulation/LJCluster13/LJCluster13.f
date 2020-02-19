@@ -4,14 +4,14 @@
 *
       IMPLICIT NONE
       INTEGER :: NATOMS, I, NSTEPS
-      REAL*8 :: XMATRIX(3, 13), VMATRIX(3, 13), FMATRIX(3, 13), 
-     &NEWFMATRIX(3, 13), DT
-      REAL*8 :: POTENTIALENERGY, KINETICENERGY, 
+      DOUBLE PRECISION :: XMATRIX(3, 13), VMATRIX(3, 13), 
+     &FMATRIX(3, 13), NEWFMATRIX(3, 13), DT
+      DOUBLE PRECISION :: POTENTIALENERGY, KINETICENERGY, 
      &TEMPERATURE, SITEMPERATURE
 
       NATOMS = 13
-      NSTEPS = 1000
-      DT = 0.01
+      NSTEPS = 100000
+      DT = 0.0001
 
       CALL INITIALISE(XMATRIX, VMATRIX, NATOMS)
 
@@ -24,7 +24,7 @@
           CALL V_VERLET_UPDATE_VMATRIX(VMATRIX, FMATRIX, 
      &NEWFMATRIX, NATOMS, DT)
           FMATRIX = NEWFMATRIX
-          IF (MOD(I, 10) .EQ. 0) THEN
+          IF (MOD(I, 100) .EQ. 0) THEN
               CALL WRITECONFIG(XMATRIX, NATOMS)
               CALL TOTALPOTENTIALENERGY(XMATRIX, NATOMS, 
      &POTENTIALENERGY)
@@ -51,7 +51,7 @@
       END PROGRAM
 
       SUBROUTINE SETMATRIXZERO(MATRIX, N)
-      REAL*8 :: MATRIX(3, *)
+      DOUBLE PRECISION :: MATRIX(3, *)
       INTEGER :: N
 *
 * Sets the elements of a 3 x N matrix to zero
@@ -67,7 +67,7 @@
       END SUBROUTINE
 
       SUBROUTINE GETDISP(XI, XJ, DISP)
-      REAL*8 :: XI(3), XJ(3), DISP(3)
+      DOUBLE PRECISION :: XI(3), XJ(3), DISP(3)
 *
 * Displacement between two vectors in 3D space
 *
@@ -83,7 +83,7 @@
 *
 * Square magnitude of a given 3D vector
 *
-      REAL*8 :: VEC(3), MAG2
+      DOUBLE PRECISION :: VEC(3), MAG2
       INTEGER :: N
 
       MAG2 = 0
@@ -95,11 +95,11 @@
       END SUBROUTINE
 
       SUBROUTINE GETFORCESCALAR(R2, LJ2FSCAL)
-      REAL*8 :: R2, LJ2FSCAL
+      DOUBLE PRECISION :: R2, LJ2FSCAL
 *
 * Calculate 2-particle Lennard-Jones force divided by displacement vector
 *
-      REAL*8 :: RTOMIN6
+      DOUBLE PRECISION :: RTOMIN6
 
       RTOMIN6 = R2 ** (-3)
       LJ2FSCAL = 24 * ((2 * (RTOMIN6 ** 2)) - RTOMIN6) / R2
@@ -107,11 +107,11 @@
       END SUBROUTINE
 
       SUBROUTINE GETLJFORCEIJ(XI, XJ, LJFIJ)
-      REAL*8 :: XI(3), XJ(3), LJFIJ(3)
+      DOUBLE PRECISION :: XI(3), XJ(3), LJFIJ(3)
 *
 * Lennard-Jones force of particle j on particle i
 *
-      REAL*8 :: DISPIJ(3), R2, FSCAL
+      DOUBLE PRECISION :: DISPIJ(3), R2, FSCAL
       INTEGER :: N
 
       CALL GETDISP(XI, XJ, DISPIJ)
@@ -125,11 +125,11 @@
       END SUBROUTINE
 
       SUBROUTINE GET2ATOMPOTENTIAL(XI, XJ, LJPOTIJ)
-      REAL*8 :: XI(3), XJ(3), LJPOTIJ
+      DOUBLE PRECISION :: XI(3), XJ(3), LJPOTIJ
 *
 * Lennard-Jones pair potential for particles i and j
 *
-      REAL*8 :: DISPIJ(3), R2, RTOMIN6
+      DOUBLE PRECISION :: DISPIJ(3), R2, RTOMIN6
 
       CALL GETDISP(XI, XJ, DISPIJ)
       CALL GETSQUAREMAGNITUDE(DISPIJ, R2)
@@ -141,7 +141,8 @@
 
       SUBROUTINE V_VERLET_UPDATE_XMATRIX
      &(XMATRIX, VMATRIX, FMATRIX, NATOMS, DT)
-      REAL*8 :: XMATRIX(3, *), VMATRIX(3, *), FMATRIX(3, *), DT
+      DOUBLE PRECISION :: XMATRIX(3, *), VMATRIX(3, *), 
+     &FMATRIX(3, *), DT
       INTEGER :: NATOMS
 *
 * Update positions by velocity Verlet algorithm
@@ -159,7 +160,8 @@
 
       SUBROUTINE V_VERLET_UPDATE_VMATRIX(VMATRIX, FMATRIX, 
      &NEWFMATRIX, NATOMS, DT)
-      REAL*8 :: VMATRIX(3, *), FMATRIX(3, *), NEWFMATRIX(3, *), DT
+      DOUBLE PRECISION :: VMATRIX(3, *), FMATRIX(3, *), 
+     &NEWFMATRIX(3, *), DT
       INTEGER :: NATOMS
 *
 * Update velocities by velocity Verlet algorithm
@@ -176,12 +178,12 @@
       END SUBROUTINE
 
       SUBROUTINE GETFORCES(FMATRIX, XMATRIX, NATOMS)
-      REAL*8 :: XMATRIX(3, *), FMATRIX(3, *)
+      DOUBLE PRECISION :: XMATRIX(3, *), FMATRIX(3, *)
       INTEGER :: NATOMS
 *
 * Get matrix of forces for NATOMS atoms
 *
-      REAL*8 :: XI(3), XJ(3), FIJ(3)
+      DOUBLE PRECISION :: XI(3), XJ(3), FIJ(3)
       INTEGER :: I, J, N
 
       CALL SETMATRIXZERO(FMATRIX, NATOMS)
@@ -201,7 +203,7 @@
       END SUBROUTINE
 
       SUBROUTINE INITIALISE(XMATRIX, VMATRIX, NATOMS)
-      REAL*8 :: XMATRIX(3, *), VMATRIX(3, *)
+      DOUBLE PRECISION :: XMATRIX(3, *), VMATRIX(3, *)
       INTEGER :: NATOMS
 *
 * Initialise positions and velocities of NATOMS atoms.
@@ -221,7 +223,7 @@
       END SUBROUTINE
 
       SUBROUTINE WRITECONFIG(XMATRIX, NATOMS)
-      REAL*8 :: XMATRIX(3, *)
+      DOUBLE PRECISION :: XMATRIX(3, *)
       INTEGER :: NATOMS
 *
 * Writes current configuration to .xyz file
@@ -239,12 +241,12 @@
       END SUBROUTINE
 
       SUBROUTINE TOTALKINETICENERGY(VMATRIX, NATOMS, TOTKE)
-      REAL*8 :: VMATRIX(3, *), TOTKE
+      DOUBLE PRECISION :: VMATRIX(3, *), TOTKE
       INTEGER :: NATOMS
 *
 * Get the total kinetic energy (in reduced units)
 *
-      REAL*8 :: VI(3), V2I
+      DOUBLE PRECISION :: VI(3), V2I
       INTEGER :: I
 
       TOTKE = 0
@@ -258,7 +260,7 @@
       END SUBROUTINE
 
       SUBROUTINE GETTEMP(TOTALKE, NATOMS, TEMP)
-      REAL*8 :: TOTALKE, TEMP
+      DOUBLE PRECISION :: TOTALKE, TEMP
       INTEGER :: NATOMS
 *
 * Get temperature (in reduced units)
@@ -269,11 +271,11 @@
       END SUBROUTINE
 
       SUBROUTINE CONVERTTEMP(TEMP, SITEMP)
-      REAL*8 :: TEMP, SITEMP
+      DOUBLE PRECISION :: TEMP, SITEMP
 *
 * Convert temperature from reduced units to SI, for Argon
 *
-      REAL*8 :: SIGMA, EPSILONBYKBK
+      DOUBLE PRECISION :: SIGMA, EPSILONBYKBK
 
       EPSILONBYKBK = 120
       SIGMA = 3.4 * 10 ** (-10)
@@ -283,12 +285,12 @@
       END SUBROUTINE
 
       SUBROUTINE TOTALPOTENTIALENERGY(XMATRIX, NATOMS, TOTPE)
-      REAL*8 :: XMATRIX(3, *), TOTPE
+      DOUBLE PRECISION :: XMATRIX(3, *), TOTPE
       INTEGER :: NATOMS
 *
 * Get total potential energy using Lennard-Jones pair potential
 *
-      REAL*8 :: XI(3), XJ(3), POTIJ
+      DOUBLE PRECISION :: XI(3), XJ(3), POTIJ
       INTEGER :: I, J
 
       TOTPE = 0
