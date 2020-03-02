@@ -4,31 +4,32 @@
 *
       IMPLICIT NONE
       INTEGER :: NATOMS, I, NSTEPS, NFCCINLENSIM
-      DOUBLE PRECISION :: XMATRIX(3, 13), VMATRIX(3, 13), 
-     &FMATRIX(3, 13), NEWFMATRIX(3, 13), LATTICEPARAM, DT
+      DOUBLE PRECISION :: XMATRIX(3, 120), VMATRIX(3, 120), 
+     &FMATRIX(3, 120), NEWFMATRIX(3, 120), LATTICEPARAM, BOXLEN, DT
       DOUBLE PRECISION :: POTENTIALENERGY, KINETICENERGY, 
      &TEMPERATURE, SITEMPERATURE
 
-      NFCCINLENSIM = 1
-      LATTICEPARAM = 2 ** (2 / 3)
-      NATOMS = 4 * NFCCINLENCELL ** 3
+      NFCCINLENSIM = 3
+      LATTICEPARAM = 2 ** (2. / 3.)
+      NATOMS = 4 * NFCCINLENSIM ** 3
+      BOXLEN = NFCCINLENSIM * LATTICEPARAM
       NSTEPS = 1000
       DT = 0.01
 
-      CALL INITIALISE(XMATRIX, VMATRIX, NFCCLENSIM, LATTICEPARAM)
+      CALL INITIALISE(XMATRIX, VMATRIX, NFCCINLENSIM, LATTICEPARAM)
 
-      CALL GETFORCES(FMATRIX, XMATRIX, NATOMS)
+      CALL GETFORCES(FMATRIX, XMATRIX, BOXLEN, NATOMS)
 
       DO 1 I = 1, NSTEPS
           CALL V_VERLET_UPDATE_XMATRIX(XMATRIX, VMATRIX, 
      &FMATRIX, NATOMS, DT)
-          CALL GETFORCES(NEWFMATRIX, XMATRIX, NATOMS)
+          CALL GETFORCES(NEWFMATRIX, XMATRIX, BOXLEN, NATOMS)
           CALL V_VERLET_UPDATE_VMATRIX(VMATRIX, FMATRIX, 
      &NEWFMATRIX, NATOMS, DT)
           FMATRIX = NEWFMATRIX
           IF (MOD(I, 10) .EQ. 0) THEN
               CALL WRITECONFIG(XMATRIX, NATOMS)
-              CALL TOTALPOTENTIALENERGY(XMATRIX, NATOMS, 
+              CALL TOTALPOTENTIALENERGY(XMATRIX, NATOMS, BOXLEN, 
      &POTENTIALENERGY)
               CALL TOTALKINETICENERGY(VMATRIX, NATOMS, KINETICENERGY)
               CALL GETTEMP(KINETICENERGY, NATOMS, TEMPERATURE)
@@ -68,15 +69,20 @@
 
       END SUBROUTINE
 
-      SUBROUTINE GETDISP(XI, XJ, DISP)
-      DOUBLE PRECISION :: XI(3), XJ(3), DISP(3)
+      SUBROUTINE GETMINDISP(XI, XJ, BOXLEN, DISP)
+      DOUBLE PRECISION :: XI(3), XJ(3), BOXLEN, DISP(3)
 *
-* Displacement between two vectors in 3D space
+* Displacement between two vectors in 3D space,
+* applying the minimum image convention
+* for periodic boundary conditions.
 *
       INTEGER :: N
 
       DO 10 N = 1, 3
           DISP(N) = XJ(N) - XI(N)
+          IF (DISP(N) .GT. 0.5 * BOXLEN) THEN
+              DISP(N) = DISP(N) - BOXLEN
+          END IF
 10    CONTINUE
 
       END SUBROUTINE
@@ -108,15 +114,15 @@
 
       END SUBROUTINE
 
-      SUBROUTINE GETLJFORCEIJ(XI, XJ, LJFIJ)
-      DOUBLE PRECISION :: XI(3), XJ(3), LJFIJ(3)
+      SUBROUTINE GETLJFORCEIJ(XI, XJ, BOXLEN, LJFIJ)
+      DOUBLE PRECISION :: XI(3), XJ(3), BOXLEN, LJFIJ(3)
 *
 * Lennard-Jones force of particle j on particle i
 *
       DOUBLE PRECISION :: DISPIJ(3), R2, FSCAL
       INTEGER :: N
 
-      CALL GETDISP(XI, XJ, DISPIJ)
+      CALL GETMINDISP(XI, XJ, BOXLEN, DISPIJ)
       CALL GETSQUAREMAGNITUDE(DISPIJ, R2)
       CALL GETFORCESCALAR(R2, FSCAL)
 
@@ -126,14 +132,14 @@
 
       END SUBROUTINE
 
-      SUBROUTINE GET2ATOMPOTENTIAL(XI, XJ, LJPOTIJ)
-      DOUBLE PRECISION :: XI(3), XJ(3), LJPOTIJ
+      SUBROUTINE GET2ATOMPOTENTIAL(XI, XJ, BOXLEN, LJPOTIJ)
+      DOUBLE PRECISION :: XI(3), XJ(3), BOXLEN, LJPOTIJ
 *
 * Lennard-Jones pair potential for particles i and j
 *
       DOUBLE PRECISION :: DISPIJ(3), R2, RTOMIN6
 
-      CALL GETDISP(XI, XJ, DISPIJ)
+      CALL GETMINDISP(XI, XJ, BOXLEN, DISPIJ)
       CALL GETSQUAREMAGNITUDE(DISPIJ, R2)
 
       RTOMIN6 = R2 ** (-3)
@@ -179,8 +185,8 @@
 
       END SUBROUTINE
 
-      SUBROUTINE GETFORCES(FMATRIX, XMATRIX, NATOMS)
-      DOUBLE PRECISION :: XMATRIX(3, *), FMATRIX(3, *)
+      SUBROUTINE GETFORCES(FMATRIX, XMATRIX, BOXLEN, NATOMS)
+      DOUBLE PRECISION :: XMATRIX(3, *), FMATRIX(3, *), BOXLEN
       INTEGER :: NATOMS
 *
 * Get matrix of forces for NATOMS atoms
@@ -194,7 +200,7 @@
           XI = XMATRIX(:, I)
           DO 110 J = I + 1, NATOMS
               XJ = XMATRIX(:, J)
-              CALL GETLJFORCEIJ(XI, XJ, FIJ)
+              CALL GETLJFORCEIJ(XI, XJ, BOXLEN, FIJ)
               DO 120 N = 1, 3
                   FMATRIX(N, I) = FMATRIX(N, I) + FIJ(N)
                   FMATRIX(N, J) = FMATRIX(N, J) - FIJ(N)
@@ -204,19 +210,41 @@
 
       END SUBROUTINE
 
-      SUBROUTINE INITIALISE(XMATRIX, VMATRIX, NFCCINLENSIM, 
+      SUBROUTINE INITIALISE(XMATRIX, VMATRIX, NBOX, 
      &LATTICEPARAM)
       DOUBLE PRECISION :: XMATRIX(3, *), VMATRIX(3, *), LATTICEPARAM
-      INTEGER :: NFCCINLENSIM
+      INTEGER :: NBOX
 *
-* Initialise positions and velocities of NATOMS atoms.
+* Initialise fcc lattice of 4 * NBOX^3 atoms.
 *
-      INTEGER :: I
+      INTEGER :: I, J, K, N
 
-      DO 130 I = 1, NFCCINLENSIM
+      N = 1
+
+      DO 130 I = 1, NBOX
+          DO 131 J = 1, NBOX
+              DO 132 K = 1, NBOX
+                  XMATRIX(1, N) = (I - 1) * LATTICEPARAM
+                  XMATRIX(2, N) = (J - 1) * LATTICEPARAM
+                  XMATRIX(3, N) = (K - 1) * LATTICEPARAM
+                  N = N + 1
+                  XMATRIX(1, N) = (I - 0.5) * LATTICEPARAM
+                  XMATRIX(2, N) = (J - 0.5) * LATTICEPARAM
+                  XMATRIX(3, N) = (K - 1) * LATTICEPARAM
+                  N = N + 1
+                  XMATRIX(1, N) = (I - 0.5) * LATTICEPARAM
+                  XMATRIX(2, N) = (J - 1) * LATTICEPARAM
+                  XMATRIX(3, N) = (K - 0.5) * LATTICEPARAM
+                  N = N + 1
+                  XMATRIX(1, N) = (I - 1) * LATTICEPARAM
+                  XMATRIX(2, N) = (J - 0.5) * LATTICEPARAM
+                  XMATRIX(3, N) = (K - 0.5) * LATTICEPARAM
+                  N = N + 1
+132           CONTINUE
+131       CONTINUE
 130   CONTINUE
 
-      CALL SETMATRIXZERO(VMATRIX, 4 * NFCCINLENSIM ** 3)
+      CALL SETMATRIXZERO(VMATRIX, 4 * NBOX ** 3)
 
       END SUBROUTINE
 
@@ -228,7 +256,7 @@
 *
       INTEGER :: I
 
-      OPEN(1, ACCESS = "APPEND", FILE = "LJ13.xyz")
+      OPEN(1, ACCESS = "APPEND", FILE = "LJfluid.xyz")
       WRITE (1, *) NATOMS
       WRITE (1, *) ""
       DO 140 I = 1, NATOMS
@@ -276,14 +304,14 @@
       DOUBLE PRECISION :: SIGMA, EPSILONBYKBK
 
       EPSILONBYKBK = 120
-      SIGMA = 3.4 * 10 ** (-10)
+*     SIGMA = 3.4 * 10 ** (-10)
 
       SITEMP = TEMP * EPSILONBYKBK
 
       END SUBROUTINE
 
-      SUBROUTINE TOTALPOTENTIALENERGY(XMATRIX, NATOMS, TOTPE)
-      DOUBLE PRECISION :: XMATRIX(3, *), TOTPE
+      SUBROUTINE TOTALPOTENTIALENERGY(XMATRIX, NATOMS, BOXLEN, TOTPE)
+      DOUBLE PRECISION :: XMATRIX(3, *), BOXLEN, TOTPE
       INTEGER :: NATOMS
 *
 * Get total potential energy using Lennard-Jones pair potential
@@ -297,7 +325,7 @@
           XI = XMATRIX(:, I)
           DO 170 J = I + 1, NATOMS
               XJ = XMATRIX(:, J)
-              CALL GET2ATOMPOTENTIAL(XI, XJ, POTIJ)
+              CALL GET2ATOMPOTENTIAL(XI, XJ, BOXLEN, POTIJ)
               TOTPE = TOTPE + POTIJ
 170       CONTINUE
 160   CONTINUE
