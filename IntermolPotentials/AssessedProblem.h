@@ -38,6 +38,9 @@ class dipole {
             polarisability = polarisability_;
             moment = moment_;
         }
+        void setMoment(double moment_){
+            moment = moment_;
+        }
         double getPosition(){
             return position;
         }
