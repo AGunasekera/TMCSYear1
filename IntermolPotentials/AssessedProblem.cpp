@@ -10,9 +10,9 @@ class pointCharge {
             position = 0;
             charge = 0;
         }
-        void placeCharge(double position, double charge){
-            position = position;
-            charge = charge;
+        void setCharge(double position_, double charge_){
+            position = position_;
+            charge = charge_;
         }
         double getPosition(){
             return position;
@@ -23,30 +23,24 @@ class pointCharge {
 };
 
 class dipole {
-// Class for a dipole at a given position, in a given electric field, with a given polarisability, and a corresponding dipole moment.
+// Class for a dipole at a given position, with a given polarisability, and a corresponding dipole moment.
     double position;
-    double field;    
     double polarisability;
     double moment;
     public:
         dipole(){
             position = 0;
-            field = 0;
             polarisability = 0;
             moment = 0;
         }
-        void placeDipole(double position, double field, double polarisability, double moment){
-            position = position;
-            field = field;
-            polarisability = polarisability;
-            moment = moment;
+        void setDipole(double position_, double polarisability_, double moment_){
+            position = position_;
+            polarisability = polarisability_;
+            moment = moment_;
         }
         double getPosition(){
             return position;
         }
-        double getField(){
-            return field;
-        }   
         double getPolarisability(){
             return polarisability;
         }
@@ -55,7 +49,7 @@ class dipole {
         }
 };
 
-int printSystem(int nCharges, pointCharge * charges, int nDipoles, dipole * dipoles){
+int printSystem(int nCharges, pointCharge charges[], int nDipoles, dipole dipoles[]){
 // Print out the current charges and dipole moments
     cout << "Point charges" << endl;
     cout << "Position z / Angstrom    Charge q / e" << endl;
@@ -80,24 +74,23 @@ int iterate(pointCharge charges, dipole dipoles){
 int main(){
 // Initial parameters for 1d lattice of identical charges and 1d lattice of identical dipoles
     int nCharges = 0;
-    int nDipoles = 2;
+    int nDipoles = 5;
     double chargeLatticeSeparation = -1.;
     double dipoleLatticeSeparation = 1.;
     double charge = 1.;
-    double moment = 1.;
-    double field = 0.;
     double polarisability = 1.;
+    double moment = 1.;
 
 // Place charges
     pointCharge charges[nCharges];
     for(int i=0; i<nCharges; i++){
-        charges[i].placeCharge(i*chargeLatticeSeparation, charge);
+        charges[i].setCharge(i*chargeLatticeSeparation, charge);
     }
 
 // Place dipoles
     dipole dipoles[nDipoles];
     for(int i=0; i<nDipoles; i++){
-        dipoles[i].placeDipole((i+1)*dipoleLatticeSeparation, field, polarisability, moment);
+        dipoles[i].setDipole((i+1)*dipoleLatticeSeparation, polarisability, moment);
     }
 
     printSystem(nCharges, charges, nDipoles, dipoles);
