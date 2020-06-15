@@ -14,6 +14,12 @@ class pointCharge {
             field = 0;
             charge = 0;
         }
+        pointCharge(const pointCharge &pC){
+            position = pC.position;
+            potential = pC.potential;
+            field = pC.field;
+            charge = pC.charge;
+        }
         void setPosition(double position_){
             position = position_;
         }

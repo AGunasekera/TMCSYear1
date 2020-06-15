@@ -71,15 +71,18 @@ std::vector<dipole> newDipoles(std::vector<pointCharge> charges, std::vector<dip
         position = oldDipoles[i].getPosition();
         field = oldDipoles[i].getField();
         for (int j=0; j<charges.size(); j++){
+            
             if (position != charges[j].getPosition()){
                 field += pointChargeField(position, charges[j]);
             }
         }
         for (int j=0; j<dipoles.size(); j++){
             if (position != dipoles[j].getPosition()){
-                field += dipoleField(position, dipoles[j]);
+                std::cout << i << "    " << j << "\n";
+                field += dipoleField(position, oldDipoles[j]);
             }
         }
+        std::cout << field << "\n";
         dipoles[i].setField(field);
         dipoles[i].setMoment(oldMoment + polarisability * field);
     }
