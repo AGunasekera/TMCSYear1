@@ -5,13 +5,11 @@
 class pointCharge {
     double position;
     double potential;
-    double field;
     double charge;
     public:
         pointCharge(){
             position = 0;
             potential = 0;
-            field = 0;
             charge = 0;
         }
         void setPosition(double position_){
@@ -19,9 +17,6 @@ class pointCharge {
         }
         void setPotential(double potential_){
             potential = potential_;
-        }
-        void setField(double field_){
-            field = field_;
         }
         void setCharge(double charge_){
             charge = charge_;
@@ -32,9 +27,6 @@ class pointCharge {
         double getPotential(){
             return potential;
         }
-        double getField(){
-            return field;
-        }
         double getCharge(){
             return charge;
         }
@@ -43,23 +35,18 @@ class pointCharge {
 // Class for a dipole at a given position, with a given polarisability, and a corresponding dipole moment.
 class dipole {
     double position;
-    double potential;
     double field;
     double polarisability;
     double moment;
     public:
         dipole(){
             position = 0;
-            potential = 0;
             field = 0;
             polarisability = 0;
             moment = 0;
         }
         void setPosition(double position_){
             position = position_;
-        }
-        void setPotential(double potential_){
-            potential = potential_;
         }
         void setField(double field_){
             field = field_;
@@ -72,9 +59,6 @@ class dipole {
         }
         double getPosition(){
             return position;
-        }
-        double getPotential(){
-            return potential;
         }
         double getField(){
             return field;
