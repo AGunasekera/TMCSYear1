@@ -3,6 +3,58 @@
 #include <iostream>
 #include <vector>
 
+// Set parameter, parsing from command line arguments
+void setParams(int argC, char *argV[], double &extField, double &extPotential, int &nCharges, int &nDipoles, double &cLattSep, double &dLattSep, double &charge, double &polaris, double &statMom){
+    extField  = 0.;
+    extPotential = 0.;
+    nCharges = 0;
+    nDipoles = 0;
+    cLattSep = 0.;
+    dLattSep = 0.;
+    charge = 0.;
+    polaris = 0.;
+    statMom = 0.;
+
+    for (int i=1; i<argC; i+=2 ){
+        std::string flag = std::string(argV[i]);
+        std::string value = std::string(argV[i+1]);
+        if (flag == "-nc"){
+            nCharges = stoi(value);
+        } else if (flag == "-nd"){
+            nDipoles = stoi(value);
+        } else if (flag == "-cl"){
+            cLattSep = stod(value);
+        } else if (flag == "-dl"){
+            dLattSep = stod(value);
+        } else if (flag == "-c"){
+            charge = stod(value);
+        } else if (flag == "-p"){
+            polaris = stod(value);
+        } else if (flag == "-m"){
+            statMom = stod(value);
+        } else if (flag == "-f"){
+            extField = stod(value);
+        }
+    }
+}
+
+// Initialise a point charge
+void initialiseCharge(double position, double potential, double field, double charge, pointCharge &pC){
+    pC.setPosition(position);
+    pC.setPotential(potential);
+    pC.setField(field);
+    pC.setCharge(charge);
+}
+
+// Initialise a dipole
+void initialiseDipole(double position, double potential, double field, double polarisability, double moment, dipole &dp){
+    dp.setPosition(position);
+    dp.setPotential(potential);
+    dp.setField(field);
+    dp.setPolarisability(polarisability);
+    dp.setMoment(moment);
+}
+
 // Print out the current charges and dipole moments
 void printSystem(std::vector<pointCharge> charges, std::vector<dipole> dipoles){
     std::cout << "\nPoint charges";
@@ -62,8 +114,28 @@ double dipoleField(double position, dipole dipole_){
     return 2 * dipole_.getMoment() / pow(dist, 3);
 }
 
-// Calculate the field experienced by each point charge and dipole produced by the rest of the system
-void calculateFields(std::vector<pointCharge> &charges, std::vector<dipole> &dipoles, double externalField){
+// Calculate the potential experienced by each point charge produced by the rest of the system
+void potentialsAtCharges(std::vector<pointCharge> &charges, std::vector<dipole> &dipoles, double externalPotential){
+    double position, potential;
+    for (int i=0; i<charges.size(); i++){
+        position = charges[i].getPosition();
+        potential = externalPotential;
+        for (int j=0; j<charges.size(); j++){
+            if (position != charges[j].getPosition()){
+                potential += pointChargePotential(position, charges[j]);
+            }
+        }
+        for (int j=0; j<dipoles.size(); j++){
+            if (position != dipoles[j].getPosition()){
+                potential += dipolePotential(position, dipoles[j]);
+            }
+        }
+        charges[i].setPotential(potential);
+    }
+}
+
+// Calculate the field experienced by each dipole produced by the rest of the system
+void fieldAtDipoles(std::vector<pointCharge> &charges, std::vector<dipole> &dipoles, double externalField){
     std::vector<dipole> oldDipoles = dipoles;
     double position, field;
     for (int i=0; i<dipoles.size(); i++){
@@ -83,7 +155,7 @@ void calculateFields(std::vector<pointCharge> &charges, std::vector<dipole> &dip
     }
 }
 
-// Update dipoles based on the field they experience, returning the largest absolute change in dipole moment
+// Update dipole moments based on the field they experience, returning the largest absolute change in dipole moment
 double updateDipoles(std::vector<dipole> &dipoles, double staticMoment){
     double oldMoment, newMoment, polarisability, field;
     double change = 0;
@@ -100,72 +172,69 @@ double updateDipoles(std::vector<dipole> &dipoles, double staticMoment){
     return magnitude(change);
 }
 
-int main(int argc, char *argv[]){
-    // Default parameters for 1d lattice of identical charges and 1d lattice of identical dipoles
-    double externalPotential = 0.;
-    double externalField = 0.;
-    int nCharges = 0;
-    int nDipoles = 0;
-    double chargeLatticeSeparation = 0.;
-    double dipoleLatticeSeparation = 0.;
-    double charge = 0.;
-    double polarisability = 0.;
-    double staticMoment = 0.;
-
-    // Read command line arguments to update parameters
-    for (int i=1; i<argc; i+=2 ){
-        std::string flag = std::string(argv[i]);
-        std::string value = std::string(argv[i+1]);
-        if (flag == "-nc"){
-            nCharges = stoi(value);
-        } else if (flag == "-nd"){
-            nDipoles = stoi(value);
-        } else if (flag == "-cl"){
-            chargeLatticeSeparation = stod(value);
-        } else if (flag == "-dl"){
-            dipoleLatticeSeparation = stod(value);
-        } else if (flag == "-c"){
-            charge = stod(value);
-        } else if (flag == "-p"){
-            polarisability = stod(value);
-        } else if (flag == "-m"){
-            staticMoment = stod(value);
-        } else if (flag == "-f"){
-            externalField = stod(value);
-        }
+// Energy of the system in its given state
+double systemEnergy(std::vector<pointCharge> charges, std::vector<dipole> dipoles){
+    double sumEnergy = 0.;
+    for (int i=0; i<charges.size(); i++){
+        sumEnergy += charges[i].getCharge() * charges[i].getPotential();
     }
+    for (int i=0; i<dipoles.size(); i++){
+        sumEnergy -= dotproduct(dipoles[i].getMoment(), dipoles[i].getField());
+    }
+    return sumEnergy / 2;
+}
+
+int main(int argc, char *argv[]){
+    // Declare parameters for 1d lattice of identical charges and 1d lattice of identical dipoles
+    double externalPotential, externalField;
+    int nCharges, nDipoles;
+    double chargeLatticeSeparation, dipoleLatticeSeparation;
+    double charge, polarisability, staticMoment;
+
+    // Set parameters
+    setParams(argc, argv, externalField, externalPotential, nCharges, nDipoles, chargeLatticeSeparation, dipoleLatticeSeparation, charge, polarisability, staticMoment);
 
     // Place charges in 1d lattice, with first charge at 0
     std::vector<pointCharge> charges(nCharges);
     for(int i=0; i<nCharges; i++){
-        charges[i].setPosition(i*chargeLatticeSeparation);
-        charges[i].setPotential(externalPotential);
-        charges[i].setField(externalField);
-        charges[i].setCharge(charge);
+        initialiseCharge(i*chargeLatticeSeparation, externalPotential, externalField, charge, charges[i]);
     }
 
     // Place dipoles, with first dipole at 1 * dipoleLatticeSeparation
     std::vector<dipole> dipoles(nDipoles);
     for(int i=0; i<nDipoles; i++){
-        dipoles[i].setPosition((i+1)*dipoleLatticeSeparation);
-        dipoles[i].setPotential(externalPotential);
-        dipoles[i].setField(externalField);
-        dipoles[i].setPolarisability(polarisability);
-        dipoles[i].setMoment(staticMoment);
+        initialiseDipole((i+1)*dipoleLatticeSeparation, externalPotential, externalField, polarisability, staticMoment, dipoles[i]);
     }
 
-    double dipoleChange;
+    double dipoleChange = 0.;
+    double energyChange = 0.;
+    double totalEnergy, electrostaticEnergy;
+    double inductionEnergy = 0.;
     int i = 0, maxIterations = 1000;
     while(i < maxIterations){
+        std::cout << "Iteration " << i << "\n";
+        potentialsAtCharges(charges, dipoles, externalPotential);
+        fieldAtDipoles(charges, dipoles, externalField);
         printSystem(charges, dipoles);
-        calculateFields(charges, dipoles, externalField);
+        totalEnergy = systemEnergy(charges, dipoles);
+        if (i == 0){
+            electrostaticEnergy = totalEnergy;
+        }
+        energyChange = -inductionEnergy;
+        inductionEnergy = totalEnergy - electrostaticEnergy;
+        energyChange += inductionEnergy;
+        std::cout << "\nEnergy: " << totalEnergy << "\n";
+        std::cout << "Induction energy: " << inductionEnergy << "\n";
+        std::cout << "Change in induction energy: " << energyChange << "\n";
         dipoleChange = updateDipoles(dipoles, staticMoment);
-        std::cout << "\n" << dipoleChange;
+        std::cout << "\nNew dipoles calculated.";
+        std::cout << "\nMax change in dipole moment: " << dipoleChange << "\n";
         if (dipoleChange < pow(10, -4)){
+            std::cout << "\nCalculation converged in " << i << " steps.\n";
             return 0;
         }
         i++;
     }
-    std::cout << "Dipoles not converged in " << maxIterations << " steps.";
+    std::cout << "\nDipoles not converged in " << maxIterations << " steps.\n";
     return 1;
 }
