@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << newX << "    " << newY << "\n";
-    while ((std::abs(newX-X) > pow(10.,-6.)) || (std::abs(newY-Y) > pow(10.,-6.))) {
+    while ((std::abs(newX-X) > pow(10.,-8.)) || (std::abs(newY-Y) > pow(10.,-8.))) {
         X = newX;
         Y = newY;
         newX = f(X, Y);
